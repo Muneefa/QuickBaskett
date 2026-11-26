@@ -1,0 +1,703 @@
+<title>QuickBasket Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: role switcher bar on top; customer app = header + catalogue + cart drawer + assistant; admin = tabs + tables; partner = phone-width cards. */
+:root{
+  --bg:#F3F7F4; --surface:#FFFFFF; --surface-2:#EAF1EC; --ink:#10261C; --muted:#586C61; --line:#D9E4DC;
+  --brand:#15803F; --brand-ink:#FFFFFF; --brand-soft:#DCF2E4;
+  --accent:#F4622F; --accent-soft:#FFE6DC;
+  --good:#15803F; --good-bg:#DCF2E4; --warn:#8A5A00; --warn-bg:#FFF0C7; --bad:#B42318; --bad-bg:#FDE4E0; --info:#1F5FA8; --info-bg:#DEEBFA;
+  --shadow:0 1px 2px rgba(16,38,28,.06),0 8px 24px rgba(16,38,28,.07);
+  --display:"Bricolage Grotesque","Plus Jakarta Sans",system-ui,sans-serif;
+  --body:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0B1510; --surface:#13201A; --surface-2:#1A2A22; --ink:#E7F1EA; --muted:#98ADA1; --line:#26382E;
+  --brand:#3FBF7A; --brand-ink:#06210F; --brand-soft:#173826;
+  --accent:#FF8358; --accent-soft:#3B2217;
+  --good:#52D18C; --good-bg:#173826; --warn:#F1BF5A; --warn-bg:#3A2D0F; --bad:#FF8B7C; --bad-bg:#3E1B17; --info:#7DB4F2; --info-bg:#15283F;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35); color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0B1510; --surface:#13201A; --surface-2:#1A2A22; --ink:#E7F1EA; --muted:#98ADA1; --line:#26382E;
+  --brand:#3FBF7A; --brand-ink:#06210F; --brand-soft:#173826;
+  --accent:#FF8358; --accent-soft:#3B2217;
+  --good:#52D18C; --good-bg:#173826; --warn:#F1BF5A; --warn-bg:#3A2D0F; --bad:#FF8B7C; --bad-bg:#3E1B17; --info:#7DB4F2; --info-bg:#15283F;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35); color-scheme:dark;}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 96px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--ink);z-index:60}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:8px}
+h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto}
+
+/* role bar */
+.rolebar{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:var(--ink);color:var(--bg);
+  margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px))}
+.rolebar .wrap{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.pill-note{font-size:12px;opacity:.8;margin-left:auto}
+.rolebar .who{font-size:13px;opacity:.9}
+.rolebar .btn{background:transparent;color:inherit;border-color:rgba(255,255,255,.35);min-height:32px}
+.tabs{display:flex;gap:4px;background:rgba(255,255,255,.12);padding:3px;border-radius:999px}
+.tabs button{border:0;background:transparent;color:inherit;padding:6px 14px;border-radius:999px;font-weight:600;font-size:13px}
+.tabs button[aria-pressed="true"]{background:var(--bg);color:var(--ink)}
+.rolebar b{font-family:var(--display);font-size:15px}
+
+/* buttons */
+.btn{border:1px solid var(--line);background:var(--surface);padding:10px 16px;border-radius:12px;font-weight:600;display:inline-flex;gap:8px;align-items:center;justify-content:center;min-height:44px}
+.btn:hover{border-color:var(--brand)}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{background:transparent}
+.btn.sm{min-height:34px;padding:6px 12px;font-size:13px;border-radius:10px}
+.btn.block{width:100%}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* pills */
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-good{background:var(--good-bg);color:var(--good)} .p-warn{background:var(--warn-bg);color:var(--warn)}
+.p-bad{background:var(--bad-bg);color:var(--bad)} .p-info{background:var(--info-bg);color:var(--info)} .p-mute{background:var(--surface-2);color:var(--muted)}
+
+/* customer header */
+.chead{display:grid;grid-template-columns:auto 1fr auto;gap:12px 20px;align-items:center;padding:16px 0}
+.logo{display:flex;align-items:center;gap:10px;border:0;background:none;padding:0}
+.logo svg{width:38px;height:38px}
+.logo span{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:-.02em}
+.logo span i{font-style:normal;color:var(--brand)}
+.search{position:relative}
+.search input{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:12px 14px 12px 42px;min-height:46px}
+.search svg{position:absolute;left:14px;top:50%;translate:0 -50%;width:18px;height:18px;color:var(--muted)}
+.hactions{display:flex;gap:8px;justify-self:end}
+.badge{background:var(--accent);color:#fff;border-radius:999px;font-size:11px;padding:1px 7px;font-weight:700}
+.eta{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px;margin-bottom:12px;flex-wrap:wrap}
+.eta b{color:var(--ink)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:20px}
+.hero .main{background:var(--brand);color:var(--brand-ink);border-radius:22px;padding:28px;display:flex;flex-direction:column;gap:10px;justify-content:center;min-width:0}
+.hero h1{font-size:clamp(28px,4.6vw,46px);line-height:1.02;font-weight:800}
+.hero p{margin:0;opacity:.9;max-width:44ch}
+.hero .side{background:var(--accent-soft);border-radius:22px;padding:22px;display:flex;flex-direction:column;gap:6px;justify-content:center;min-width:0}
+.hero .side h3{font-size:20px}
+.hero .side p{margin:0;color:var(--muted)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:16px;scrollbar-width:thin}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 16px;font-weight:600;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.sectiontitle{display:flex;align-items:baseline;justify-content:space-between;margin:6px 0 12px}
+.sectiontitle h2{font-size:22px}
+.muted{color:var(--muted)}
+
+/* products */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.pimg{aspect-ratio:1.25;border-radius:12px;display:grid;place-items:center;font-size:44px;background:color-mix(in srgb,var(--tint) 24%,var(--surface));position:relative}
+.off{position:absolute;top:8px;left:8px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px}
+.pname{font-weight:600;line-height:1.25}
+.punit{font-size:12px;color:var(--muted)}
+.prow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:6px}
+.price b{font-size:16px} .price s{font-size:12px;color:var(--muted);margin-left:4px}
+.stepper{display:inline-flex;align-items:center;background:var(--brand);color:var(--brand-ink);border-radius:10px;overflow:hidden}
+.stepper button{border:0;background:transparent;color:inherit;width:34px;height:34px;font-size:18px;font-weight:700}
+.stepper span{min-width:22px;text-align:center;font-weight:700}
+.addbtn{border:1.5px solid var(--brand);color:var(--brand);background:transparent;border-radius:10px;padding:6px 16px;font-weight:700;min-height:34px}
+.addbtn:hover{background:var(--brand-soft)}
+.empty{padding:40px 16px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:18px}
+
+/* floating cart */
+.cartbar{position:fixed;left:50%;translate:-50% 0;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;width:min(460px,calc(100% - 32px));
+  background:var(--ink);color:var(--bg);border:0;border-radius:16px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;font-weight:700;box-shadow:var(--shadow)}
+.fab{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:39}
+
+/* drawer / modal */
+.scrim{position:fixed;inset:0;background:rgba(5,15,10,.55);z-index:70;display:flex;justify-content:flex-end}
+.scrim.center{justify-content:center;align-items:center;padding:16px}
+.drawer{background:var(--surface);width:min(440px,100%);height:100%;padding:20px max(20px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) 20px;overflow:auto;display:flex;flex-direction:column;gap:14px;padding-top:calc(20px + env(safe-area-inset-top,0px))}
+.modal{background:var(--surface);border-radius:20px;padding:24px;width:min(460px,100%);display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow)}
+.dhead{display:flex;justify-content:space-between;align-items:center}
+.line{display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.line .pimg{aspect-ratio:1;font-size:26px;border-radius:10px}
+.bill{display:flex;flex-direction:column;gap:6px}
+.bill div{display:flex;justify-content:space-between}
+.bill .total{font-weight:700;font-size:17px;border-top:1px solid var(--line);padding-top:8px;margin-top:4px}
+.note{font-size:12.5px;color:var(--muted)}
+.callout{background:var(--info-bg);color:var(--info);border-radius:12px;padding:10px 12px;font-size:13px}
+.callout.warn{background:var(--warn-bg);color:var(--warn)}
+
+/* checkout */
+.cols{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel h3{font-size:18px}
+.opt{display:flex;gap:12px;align-items:flex-start;border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface);text-align:left;width:100%}
+.opt[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-soft)}
+.radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none;margin-top:2px}
+.opt[aria-pressed="true"] .radio{border-color:var(--brand);background:radial-gradient(var(--brand) 45%,transparent 50%)}
+.opt small{display:block;color:var(--muted)}
+.apps{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.app{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600}
+.app[aria-pressed="true"]{border-color:var(--brand);color:var(--brand)}
+.sticky{position:sticky;top:calc(64px + env(safe-area-inset-top,0px))}
+
+/* pay */
+.paywrap{max-width:560px;margin:8px auto;display:flex;flex-direction:column;gap:14px}
+.payhead{text-align:center;display:flex;flex-direction:column;gap:2px}
+.payhead .amt{font-family:var(--display);font-size:42px;font-weight:800}
+.qrbox{display:grid;place-items:center;padding:18px;background:#fff;border-radius:18px;border:1px solid var(--line);position:relative;margin:0 auto}
+.qrbox svg{width:min(260px,70vw);height:auto;display:block}
+.qrbox.dead svg{filter:blur(6px) grayscale(1);opacity:.5}
+.qrbox .over{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:22px;color:#10261C;text-align:center;padding:12px}
+.timer{font-family:var(--display);font-size:28px;font-weight:800;text-align:center}
+.status{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px;border-radius:12px;background:var(--surface-2);font-weight:600}
+.spin{width:16px;height:16px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--brand);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.demo{border:1.5px dashed var(--accent);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.demo h4{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.demo .row{display:flex;gap:8px;flex-wrap:wrap}
+.rzp{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface)}
+.rzp header{background:#0C2A4B;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.rzp .body{padding:16px;display:flex;flex-direction:column;gap:10px}
+.banks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.banks button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 6px;font-weight:600}
+.big{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;margin:0 auto;font-size:34px}
+.big.good{background:var(--good-bg);color:var(--good)} .big.bad{background:var(--bad-bg);color:var(--bad)}
+
+/* tracking */
+.tl{display:flex;flex-direction:column;gap:0}
+.step{display:grid;grid-template-columns:28px 1fr;gap:12px;padding-bottom:20px;position:relative}
+.step::before{content:"";position:absolute;left:13px;top:26px;bottom:0;width:2px;background:var(--line)}
+.step:last-child::before{display:none}
+.step.done::before{background:var(--brand)}
+.dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:13px;font-weight:700}
+.step.done .dot{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.step.now .dot{border-color:var(--accent);box-shadow:0 0 0 5px var(--accent-soft)}
+.map{background:var(--surface-2);border-radius:16px;overflow:hidden}
+.map svg{display:block;width:100%;height:auto}
+.rider{transition:transform 1.4s ease}
+.person{display:flex;gap:12px;align-items:center}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-weight:800;font-family:var(--display)}
+
+/* tables & dashboards */
+.atabs{display:flex;gap:6px;margin:16px 0;flex-wrap:wrap}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .v{font-family:var(--display);font-size:30px;font-weight:800}
+.stat .d{font-size:12.5px;color:var(--muted)}
+.two{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 14px;background:var(--surface-2)}
+td{padding:12px 14px;border-top:1px solid var(--line);vertical-align:middle}
+td.r,th.r{text-align:right}
+.lowrow{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:13px;font-weight:600}
+.field input{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 12px;min-height:42px}
+
+/* partner */
+.phone{max-width:480px;margin:16px auto;display:flex;flex-direction:column;gap:14px}
+.toggle{display:inline-flex;align-items:center;gap:10px;border:0;background:none;font-weight:700}
+.sw{width:46px;height:26px;border-radius:999px;background:var(--line);position:relative;transition:.2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+.toggle[aria-pressed="true"] .sw{background:var(--brand)}
+.toggle[aria-pressed="true"] .sw::after{left:23px}
+.task{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.task.new{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.check{display:flex;gap:10px;align-items:center;font-weight:600}
+.check input{width:20px;height:20px;accent-color:var(--brand)}
+
+/* assistant */
+.chat{position:fixed;z-index:80;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 32px));height:min(640px,calc(100% - 96px));
+  background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.chat header{padding:14px 16px;background:var(--brand);color:var(--brand-ink);display:flex;justify-content:space-between;align-items:center}
+.chat header b{font-family:var(--display);font-size:17px}
+.chat header button{border:0;background:rgba(255,255,255,.2);color:inherit;border-radius:10px;width:34px;height:34px;font-size:18px}
+.log{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:92%;padding:10px 12px;border-radius:14px;background:var(--surface-2);align-self:flex-start;min-width:0}
+.msg.me{background:var(--ink);color:var(--bg);align-self:flex-end}
+.list{margin-top:8px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px}
+.list h4{margin:0 0 4px;font-size:14px}
+.li{display:grid;grid-template-columns:22px 1fr auto auto;gap:8px;align-items:center;padding:5px 0;font-size:13.5px}
+.li input{width:18px;height:18px;accent-color:var(--brand)}
+.mini{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px}
+.mini button{border:0;background:none;width:24px;height:24px}
+.mini span{min-width:18px;text-align:center;font-size:13px}
+.suggest{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px}
+.suggest button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:12.5px}
+.composer{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
+.composer input{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}
+
+#toast{position:fixed;left:50%;translate:-50% 0;top:calc(64px + env(safe-area-inset-top,0px));z-index:100;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+
+@media (max-width:820px){
+  .chead{grid-template-columns:1fr auto}
+  .chead{grid-template-columns:minmax(0,1fr)}
+  .chead .logo{order:1} .chead .hactions{order:2;display:grid;grid-template-columns:repeat(3,1fr);justify-self:stretch} .chead .search{grid-column:auto;order:3}
+  .hactions .btn{padding:8px 6px;min-width:0}
+  .hero,.cols,.two{grid-template-columns:1fr}
+  .hero .side{display:none}
+  .sticky{position:static}
+  .chat{inset:0;width:100%;height:100%;border-radius:0;right:0;bottom:0}
+  .pill-note{display:none}
+  .rolebar .btn{margin-left:auto}
+  .rolebar b{display:none} .rolebar .tabs{width:100%} .rolebar .tabs button{flex:auto;white-space:nowrap;padding:6px 8px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div id="app"></div>
+<div id="toast" hidden></div>
+
+<script>
+"use strict";
+/* ---------- mock data ---------- */
+const money = n => "₹" + Math.round(n).toLocaleString("en-IN");
+const CATS = {fv:"Fruits & Veg", dairy:"Dairy & Bakery", staples:"Staples", snacks:"Snacks & Drinks", home:"Household"};
+const P = [
+ ["banana","Bananas","1 dozen",49,55,"fv","🍌","#F5C518"],["tomato","Tomatoes","500 g",32,40,"fv","🍅","#E5483B"],
+ ["onion","Onions","1 kg",38,45,"fv","🧅","#C98BB9"],["spinach","Spinach","250 g",25,30,"fv","🥬","#3FA45B"],
+ ["apple","Shimla Apples","4 pcs",120,140,"fv","🍎","#D64045"],["carrot","Carrots","500 g",36,42,"fv","🥕","#F08A24"],
+ ["milk","Toned Milk","500 ml",28,30,"dairy","🥛","#8DB8E8"],["curd","Fresh Curd","400 g",35,38,"dairy","🥣","#BFD7EA"],
+ ["eggs","Farm Eggs","12 pcs",84,90,"dairy","🥚","#E8C07D"],["paneer","Paneer","200 g",95,105,"dairy","🧀","#F2D16B"],
+ ["bread","Whole Wheat Bread","400 g",48,52,"dairy","🍞","#C58B4E"],["butter","Salted Butter","100 g",58,62,"dairy","🧈","#F4D35E"],
+ ["rice","Basmati Rice","1 kg",180,210,"staples","🍚","#D9D2B6"],["atta","Whole Wheat Atta","5 kg",255,280,"staples","🌾","#D2A55B"],
+ ["dal","Toor Dal","1 kg",160,175,"staples","🫘","#C9892F"],["oil","Sunflower Oil","1 L",145,160,"staples","🌻","#F2B705"],
+ ["chips","Masala Chips","52 g",20,20,"snacks","🥔","#E07A2F"],["coffee","Instant Coffee","100 g",175,190,"snacks","☕","#7B4B2A"],
+ ["tea","Green Tea","25 bags",140,160,"snacks","🍵","#6BAA75"],["juice","Orange Juice","1 L",99,110,"snacks","🧃","#F59E0B"],
+ ["dishwash","Dish Wash Liquid","500 ml",109,125,"home","🧴","#3AA6B9"],["detergent","Laundry Detergent","1 kg",215,240,"home","🧺","#5B8DEF"],
+ ["tissue","Toilet Paper","4 rolls",120,140,"home","🧻","#9AA5B1"],["handwash","Hand Wash","250 ml",89,99,"home","🧼","#9B7EDE"]
+].map(([id,name,unit,price,mrp,cat,emoji,tint])=>({id,name,unit,price,mrp,cat,emoji,tint,stock:id==="paneer"||id==="butter"?14:id==="chips"?18:80+(id.length*7)%60}));
+const PM = Object.fromEntries(P.map(p=>[p.id,p]));
+const RECIPES = [
+ {keys:["dinner","curry","family","lunch"],title:"Dinner for 4: dal, rice and paneer",items:[["rice",1],["dal",1],["paneer",2],["onion",1],["tomato",1],["spinach",1],["oil",1]]},
+ {keys:["breakfast","morning","school"],title:"Healthy breakfast for the week",items:[["milk",3],["eggs",1],["bread",2],["banana",1],["butter",1],["tea",1]]},
+ {keys:["snack","movie","party","friends"],title:"Movie night snacks",items:[["chips",4],["juice",2],["curd",1],["apple",1]]},
+ {keys:["clean","household","restock","laundry"],title:"Cleaning basics restock",items:[["dishwash",1],["detergent",1],["tissue",2],["handwash",2]]}
+];
+const WEEK = [["Fri",18.2],["Sat",24.5],["Sun",27.9],["Mon",16.4],["Tue",17.1],["Wed",19.8],["Today",12.6]];
+const FLOW = ["Placed","Packed","Out for delivery","Delivered"];
+
+const state = {
+  role:"customer", user:null, loginMode:"customer", lg:{email:"",pw:""}, lgErr:"", view:"shop", cat:"all", q:"", cart:{}, drawer:false, assist:false, chatInput:"",
+  chat:[{role:"bot",text:"Hi, I'm the QuickBasket assistant. Tell me what you're cooking or what you need and I'll build a list. I can add items to your cart, but I can't place orders or pay for you."}],
+  co:{addr:"home", slot:"asap", method:"upi", app:"Google Pay"}, confirm:false,
+  pay:{phase:"waiting", secs:600, seed:1}, order:null, playing:false,
+  atab:"dashboard", refund:null,
+  stock:Object.fromEntries(P.map(p=>[p.id,p.stock])),
+  partner:{online:true, cod:{}},
+  orders:[
+   {id:"QB20261124-9XK2LP",mine:true,customer:"You",total:642,items:7,method:"UPI QR",pay:"Paid",status:"Delivered",partner:"Arjun K.",accepted:true,when:"Yesterday"},
+   {id:"QB20261120-4MD8CT",mine:true,customer:"You",total:318,items:4,method:"Card",pay:"Paid",status:"Delivered",partner:"Meera D.",accepted:true,when:"20 Nov"},
+   {id:"QB20261125-3FM7QA",customer:"Rahul M.",total:318,items:4,method:"Card",pay:"Paid",status:"Out for delivery",partner:"Arjun K.",accepted:true,when:"10:42"},
+   {id:"QB20261125-8TD1ZN",customer:"Sana A.",total:1189,items:12,method:"Cash on delivery",pay:"COD pending",status:"Packed",partner:"Arjun K.",accepted:false,when:"10:51"},
+   {id:"QB20261125-5HC9WB",customer:"Vikram R.",total:249,items:3,method:"UPI app",pay:"Failed",status:"Pending payment",partner:null,when:"10:55"},
+   {id:"QB20261125-2JB6VR",customer:"Neha P.",total:455,items:5,method:"Net banking",pay:"Paid",status:"Placed",partner:null,when:"10:58"}
+  ]
+};
+const ADDR = {home:{n:"Home",l:"Flat 4B, Lakeview Residency, 5th Cross, Koramangala, Bengaluru 560034"},work:{n:"Work",l:"3rd Floor, Orchid Tech Park, Outer Ring Road, Bengaluru 560103"}};
+const SLOTS = {asap:["Deliver in 12 minutes","Fastest available"],eve:["Today, 6:00 to 7:00 pm","Scheduled, no extra charge"]};
+const METHODS = {upi:["UPI app","Google Pay, PhonePe, Paytm and other UPI apps"],qr:["UPI QR code","Scan an order-specific QR with any UPI app"],card:["Credit or debit card","Entered in the secure payment window"],net:["Net banking","Pay from your bank account"],cod:["Cash on delivery","Pay the delivery partner when your order arrives"]};
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const cartItems = () => Object.entries(state.cart).filter(([,q])=>q>0).map(([id,q])=>({p:PM[id],q}));
+const count = () => cartItems().reduce((s,x)=>s+x.q,0);
+const subtotal = () => cartItems().reduce((s,x)=>s+x.p.price*x.q,0);
+const feeFor = s => s===0 ? 0 : (s>=499 ? 0 : 30);
+const total = () => subtotal() + feeFor(subtotal());
+let toastTimer;
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,2600)}
+const statusPill = s => ({"Delivered":"p-good","Out for delivery":"p-info","Packed":"p-warn","Placed":"p-mute","Pending payment":"p-bad"}[s]||"p-mute");
+const payPill = s => ({"Paid":"p-good","COD pending":"p-warn","Pending":"p-warn","Failed":"p-bad","Refund pending":"p-info","Refunded":"p-mute","Partially refunded":"p-mute"}[s]||"p-mute");
+const pill = (t,c) => `<span class="pill ${c}">${t}</span>`;
+const orderId = () => "QB20261125-" + Math.random().toString(36).slice(2,8).toUpperCase();
+const ico = {
+  search:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
+  logo:`<svg viewBox="0 0 40 40"><rect width="40" height="40" rx="11" style="fill:var(--brand)"/><path d="M9 17h22l-2.4 12a3 3 0 0 1-3 2.4H14.4a3 3 0 0 1-3-2.4L9 17Z" style="fill:var(--brand-ink)"/><path d="M14 17l4-7M26 17l-4-7" style="stroke:var(--accent)" stroke-width="2.6" stroke-linecap="round"/></svg>`
+};
+
+/* sample QR: deterministic pattern, clearly not scannable */
+function qrSvg(seed){
+  const n=29, cells=[]; let s=seed*9301+49297;
+  const rnd=()=>{s=(s*9301+49297)%233280;return s/233280};
+  const finder=(x,y)=>x<8&&y<8||x>n-9&&y<8||x<8&&y>n-9;
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+    let on;
+    if(finder(x,y)){const fx=x<8?x:x-(n-8),fy=y<8?y:y-(n-8);on=(fx===0||fx===6||fy===0||fy===6||(fx>=2&&fx<=4&&fy>=2&&fy<=4))&&fx<7&&fy<7}
+    else on=rnd()>.52;
+    if(on)cells.push(`<rect x="${x}" y="${y}" width="1.02" height="1.02"/>`);
+  }
+  return `<svg viewBox="-1 -1 ${n+2} ${n+2}" fill="#10261C" shape-rendering="crispEdges" role="img" aria-label="Sample UPI QR code, not scannable">${cells.join("")}</svg>`;
+}
+
+/* ---------- order flow ---------- */
+function advance(o){
+  const i=FLOW.indexOf(o.status); if(i<0||i>=FLOW.length-1) return;
+  const n=FLOW[i+1]; o.status=n;
+  if(n==="Packed"){o.partner=o.partner||"Arjun K.";o.accepted=false}
+  if(n==="Out for delivery")o.accepted=true;
+  if(n==="Delivered"&&o.pay==="COD pending")o.pay="Paid";
+}
+function finishPayment(){
+  const o=state.order; o.pay=state.co.method==="cod"?"COD pending":"Paid"; o.status="Placed"; o.when="Just now";
+  state.cart={}; state.pay.phase="success"; state.view="done"; render();
+}
+function startPay(){
+  const m=state.co.method, lines=cartItems();
+  const label=METHODS[m][0];
+  if(state.order&&state.order.status==="Pending payment"){state.order.method=label;state.order.total=total()}
+  else{state.order={id:orderId(),mine:true,customer:"You",total:total(),items:count(),method:label,pay:"Pending",status:"Pending payment",partner:null,when:"Just now",lines};state.orders.unshift(state.order)}
+  state.confirm=false;
+  if(m==="cod"){finishPayment();return}
+  state.pay={phase:"waiting",secs:600,seed:state.pay.seed+1,bank:null}; state.view="pay"; render();
+}
+function payDemo(kind){
+  const o=state.order; if(!o) return;
+  if(kind==="approve"){state.pay.phase="verifying";render();setTimeout(()=>{if(state.pay.phase==="verifying")finishPayment()},1500)}
+  if(kind==="decline"){state.pay.phase="failed";o.pay="Failed";render()}
+  if(kind==="expire"){state.pay.phase="expired";state.pay.secs=0;render()}
+}
+function playDelivery(){
+  const o=state.order; if(!o||state.playing) return; state.playing=true;
+  const step=()=>{ advance(o); o.accepted=true; if(o.status==="Delivered")state.playing=false; render(); if(state.playing)setTimeout(step,2200) };
+  setTimeout(step,600);
+}
+
+/* ---------- assistant ---------- */
+const listTotal = l => l.items.filter(i=>i.on).reduce((s,i)=>s+PM[i.id].price*i.qty,0);
+function botReply(text){
+  const t=text.toLowerCase(), budget=(t.match(/(?:under|below|within|₹|rs\.?)\s*(\d{3,5})/)||[])[1];
+  const r=RECIPES.find(r=>r.keys.some(k=>t.includes(k)));
+  if(r){
+    let items=r.items.map(([id,qty])=>({id,qty,on:true})), note="";
+    if(budget){const b=+budget;while(listTotal({items})>b&&items.length>2){let mi=0;items.forEach((it,i)=>{if(PM[it.id].price*it.qty>PM[items[mi].id].price*items[mi].qty)mi=i});items.splice(mi,1)}note=` I kept it under ${money(b)}.`}
+    return {role:"bot",text:`Here's a list for "${r.title}".${note} Untick or change anything, then add it to your cart.`,list:{title:r.title,items,added:false}};
+  }
+  const words=t.split(/\W+/).filter(w=>w.length>2);
+  const hits=P.filter(p=>words.some(w=>p.name.toLowerCase().includes(w)||CATS[p.cat].toLowerCase().includes(w))).slice(0,6);
+  if(hits.length)return {role:"bot",text:"These look like a match. Adjust the quantities and add what you want.",list:{title:"Suggestions",items:hits.map(p=>({id:p.id,qty:1,on:true})),added:false}};
+  return {role:"bot",text:"I can build lists for things like dinner for 4, a healthy breakfast, movie night snacks or cleaning basics. Try one of those, or name a product."};
+}
+function sendChat(text){
+  text=(text||"").trim(); if(!text)return;
+  state.chat.push({role:"me",text}); state.chatInput=""; render();
+  setTimeout(()=>{state.chat.push(botReply(text));render()},550);
+}
+
+const ACCOUNTS=[
+ {email:"priya@example.com",pw:"customer123",role:"customer",name:"Priya S."},
+ {email:"admin@quickbasket.local",pw:"admin123",role:"admin",name:"Store admin"},
+ {email:"arjun@quickbasket.local",pw:"partner123",role:"partner",name:"Arjun K."}
+];
+const ROLE_NAME={customer:"Customer",admin:"Admin",partner:"Delivery partner"};
+
+/* ---------- views ---------- */
+function roleBar(){
+  const u=state.user;
+  return `<div class="rolebar"><div class="wrap"><b>QuickBasket</b>${u?`<span class="who">${u.name} · ${ROLE_NAME[u.role]}</span>`:""}<span class="pill-note">Prototype · sample data · no real payments</span>${u?`<button class="btn sm" data-a="logout">Sign out</button>`:""}</div></div>`;
+}
+function loginView(){
+  const staff=state.loginMode==="staff";
+  const demo=ACCOUNTS.filter(a=>staff?a.role!=="customer":a.role==="customer");
+  const esc=v=>v.replace(/"/g,"&quot;");
+  return `<div class="wrap"><div class="paywrap" style="margin-top:28px">
+  <div style="display:flex;justify-content:center"><div class="logo" style="cursor:default">${ico.logo}<span>Quick<i>Basket</i></span></div></div>
+  <section class="panel"><h2 style="font-size:26px">${staff?"Staff sign in":"Sign in"}</h2>
+   <p class="muted" style="margin:-6px 0 0">${staff?"For store admins and delivery partners only.":"Groceries. Essentials. Delivered."}</p>
+   <div class="field"><label for="lgEmail">Email</label><input id="lgEmail" type="email" autocomplete="username" value="${esc(state.lg.email)}"></div>
+   <div class="field"><label for="lgPw">Password</label><input id="lgPw" type="password" autocomplete="current-password" value="${esc(state.lg.pw)}"></div>
+   ${state.lgErr?`<div class="callout" style="background:var(--bad-bg);color:var(--bad)" role="alert">${state.lgErr}</div>`:""}
+   <button class="btn primary block" data-a="login">Sign in</button>
+   <button class="btn ghost block" data-a="loginMode" data-v="${staff?"customer":"staff"}">${staff?"Back to customer sign in":"Staff sign in"}</button></section>
+  <div class="demo"><h4>Prototype demo accounts</h4><p class="note" style="margin:0">Sample logins for this preview only. In the real app each account has its own role, passwords are never shown, and the server enforces who can open what.</p>
+   ${demo.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span><b>${ROLE_NAME[a.role]}</b><br><span class="muted num" style="font-size:13px">${a.email} · ${a.pw}</span></span><button class="btn sm" data-a="fill" data-v="${a.email}">Use</button></div>`).join("")}</div></div></div>`;
+}
+function productCard(p){
+  const q=state.cart[p.id]||0, off=p.mrp>p.price?Math.round((1-p.price/p.mrp)*100):0;
+  return `<article class="card"><div class="pimg" style="--tint:${p.tint}">${off?`<span class="off">${off}% off</span>`:""}<span aria-hidden="true">${p.emoji}</span></div>
+  <div class="pname">${p.name}</div><div class="punit">${p.unit}</div>
+  <div class="prow"><span class="price num"><b>${money(p.price)}</b>${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}</span>
+  ${q?`<span class="stepper"><button data-a="dec" data-v="${p.id}" aria-label="Remove one ${p.name}">−</button><span class="num">${q}</span><button data-a="inc" data-v="${p.id}" aria-label="Add one ${p.name}">+</button></span>`:`<button class="addbtn" data-a="inc" data-v="${p.id}">Add</button>`}</div></article>`;
+}
+function shopView(){
+  const q=state.q.trim().toLowerCase();
+  let list=P.filter(p=>(state.cat==="all"||p.cat===state.cat)&&(!q||p.name.toLowerCase().includes(q)||CATS[p.cat].toLowerCase().includes(q)));
+  const chip=(k,l)=>`<button class="chip" data-a="cat" data-v="${k}" aria-pressed="${state.cat===k}">${l}</button>`;
+  const title=q?`Results for “${state.q.trim()}”`:(state.cat==="all"?"Popular right now":CATS[state.cat]);
+  return `${q?"":`<section class="hero"><div class="main"><h1>Groceries. Essentials. Delivered.</h1><p>Fresh produce, daily staples and household basics at your door in about 12 minutes. Free delivery above ₹499.</p><div><button class="btn" data-a="openAssist" style="color:var(--ink)">Plan my shopping with the assistant</button></div></div>
+  <div class="side"><span class="pill p-warn" style="align-self:flex-start">Today only</span><h3>Dairy &amp; bakery, up to 12% off</h3><p>Milk, curd, eggs and bread restocked this morning.</p><div><button class="btn sm" data-a="cat" data-v="dairy">Shop dairy</button></div></div></section>`}
+  <div class="chips" role="group" aria-label="Categories">${chip("all","All")}${Object.entries(CATS).map(([k,l])=>chip(k,l)).join("")}</div>
+  <div class="sectiontitle"><h2>${title}</h2><span class="muted num">${list.length} items</span></div>
+  ${list.length?`<div class="grid">${list.map(productCard).join("")}</div>`:`<div class="empty">Nothing matches “${state.q}”. Try “milk”, “rice” or “soap”.</div>`}`;
+}
+function drawer(){
+  const items=cartItems(), s=subtotal(), f=feeFor(s);
+  return `<div class="scrim" data-a="closeCart"><aside class="drawer" role="dialog" aria-label="Your cart" data-stop>
+  <div class="dhead"><h2>Your cart</h2><button class="btn sm ghost" data-a="closeCart" aria-label="Close cart">Close</button></div>
+  ${items.length?`<div>${items.map(({p,q})=>`<div class="line"><div class="pimg" style="--tint:${p.tint}">${p.emoji}</div><div><div class="pname">${p.name}</div><div class="punit">${p.unit} · ${money(p.price)}</div></div>
+   <div style="text-align:right"><span class="stepper"><button data-a="dec" data-v="${p.id}" aria-label="Remove one">−</button><span class="num">${q}</span><button data-a="inc" data-v="${p.id}" aria-label="Add one">+</button></span><div class="num" style="font-weight:700;margin-top:4px">${money(p.price*q)}</div></div></div>`).join("")}</div>
+  <div class="bill num"><div><span>Items</span><span>${money(s)}</span></div><div><span>Delivery fee</span><span>${f?money(f):"Free"}</span></div><div class="total"><span>To pay</span><span>${money(s+f)}</span></div></div>
+  ${f?`<div class="callout">Add ${money(499-s)} more for free delivery.</div>`:""}
+  <p class="note">In the real app the server recalculates this total from current prices. The browser never decides the amount.</p>
+  <button class="btn primary block" data-a="toCheckout">Go to checkout</button>`
+  :`<div class="empty">Your cart is empty.<br><br><button class="btn primary" data-a="closeCart">Start shopping</button></div>`}
+  </aside></div>`;
+}
+function customerHeader(){
+  return `<header class="chead"><button class="logo" data-a="goShop" aria-label="QuickBasket home">${ico.logo}<span>Quick<i>Basket</i></span></button>
+  <div class="hactions"><button class="btn" data-a="goOrders">Orders</button><button class="btn" data-a="openAssist">Assistant</button><button class="btn primary" data-a="openCart">Cart <span class="badge num">${count()}</span></button></div>
+  <label class="search">${ico.search}<input id="q" type="search" placeholder="Search milk, rice, soap…" value="${state.q.replace(/"/g,"&quot;")}" aria-label="Search products"></label></header>
+  <div class="eta"><span class="pill p-good">Open</span><span>Delivering to <b>Home · Koramangala, Bengaluru</b></span><span class="pill p-info num">12 min</span></div>`;
+}
+function checkoutView(){
+  const opt=(grp,k,t,sub,extra="")=>`<button class="opt" data-a="${grp}" data-v="${k}" aria-pressed="${state.co[grp==="setAddr"?"addr":grp==="setSlot"?"slot":"method"]===k}"><span class="radio"></span><span style="flex:1;min-width:0"><b>${t}</b><small>${sub}</small>${extra}</span></button>`;
+  const apps=["Google Pay","PhonePe","Paytm","BHIM"].map(a=>`<span class="app" data-a="setApp" data-v="${a}" role="button" tabindex="0" aria-pressed="${state.co.app===a}">${a}</span>`).join("");
+  const s=subtotal(),f=feeFor(s);
+  return `<div class="sectiontitle"><h2>Checkout</h2><button class="btn sm ghost" data-a="goShop">Back to shopping</button></div>
+  <div class="cols"><div style="display:flex;flex-direction:column;gap:16px">
+   <section class="panel"><h3>Delivery address</h3>${Object.entries(ADDR).map(([k,a])=>opt("setAddr",k,a.n,a.l)).join("")}</section>
+   <section class="panel"><h3>Delivery time</h3>${Object.entries(SLOTS).map(([k,v])=>opt("setSlot",k,v[0],v[1])).join("")}</section>
+   <section class="panel"><h3>Payment method</h3>${Object.entries(METHODS).map(([k,v])=>opt("setMethod",k,v[0],v[1],k==="upi"&&state.co.method==="upi"?`<div class="apps">${apps}</div>`:"")).join("")}
+    <p class="note">Card details never touch QuickBasket. They are entered in Razorpay's secure window. Nothing is charged until you confirm on the next step.</p></section>
+  </div>
+  <aside class="panel sticky"><h3>Order summary</h3>${cartItems().map(({p,q})=>`<div style="display:flex;justify-content:space-between;gap:8px"><span>${p.name} × ${q}</span><span class="num">${money(p.price*q)}</span></div>`).join("")}
+   <div class="bill num"><div><span>Items</span><span>${money(s)}</span></div><div><span>Delivery fee</span><span>${f?money(f):"Free"}</span></div><div class="total"><span>Total</span><span>${money(s+f)}</span></div></div>
+   <button class="btn primary block" data-a="review" ${count()?"":"disabled"}>${state.co.method==="cod"?"Place order":"Review and pay"} · ${money(s+f)}</button></aside></div>`;
+}
+function confirmModal(){
+  const m=METHODS[state.co.method][0];
+  return `<div class="scrim center"><div class="modal" role="dialog" aria-label="Confirm payment"><h2>Confirm your payment</h2>
+  <p style="margin:0">You are about to pay <b class="num">${money(total())}</b> for ${count()} items using <b>${m}${state.co.method==="upi"?" ("+state.co.app+")":""}</b>.</p>
+  <div class="callout">Only you can approve this. The assistant can never start or approve a payment.</div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="btn" data-a="cancelConfirm">Go back</button><button class="btn primary" data-a="confirmPay">${state.co.method==="cod"?"Place order":"Confirm and continue"}</button></div></div></div>`;
+}
+function payView(){
+  const o=state.order, m=state.co.method, ph=state.pay.phase, amt=money(o.total);
+  let body="";
+  const demo=(extra="")=>`<div class="demo"><h4>Demo controls</h4><p class="note" style="margin:0">In production the real payment result reaches QuickBasket only through the gateway API and webhooks. Screenshots and on-screen messages are never trusted.</p><div class="row"><button class="btn sm primary" data-a="payDemo" data-v="approve">Simulate: paid</button><button class="btn sm" data-a="payDemo" data-v="decline">Simulate: declined</button>${extra}</div></div>`;
+  if(ph==="verifying") body=`<div class="status"><span class="spin"></span>Confirming with the payment gateway…</div>`;
+  else if(ph==="failed") body=`<div class="big bad" aria-hidden="true">!</div><h2 style="text-align:center">Payment didn't go through</h2><p class="muted" style="text-align:center;margin:0">Your order is saved and nothing was charged twice. You can retry or pick another method.</p>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn primary" data-a="retry">Retry payment</button><button class="btn" data-a="changeMethod">Choose another method</button></div>`;
+  else if(m==="qr"){
+    const dead=ph==="expired", mm=String(Math.floor(state.pay.secs/60)).padStart(2,"0"), ss=String(state.pay.secs%60).padStart(2,"0");
+    body=`<div class="qrbox ${dead?"dead":""}">${qrSvg(state.pay.seed)}${dead?`<div class="over">QR expired</div>`:""}</div>
+    ${dead?`<div class="status" style="background:var(--bad-bg);color:var(--bad)">This QR is no longer valid. Generate a new one to continue.</div><button class="btn primary block" data-a="retry">Generate new QR</button>`
+    :`<div class="timer num" id="qrTimer" aria-live="off">${mm}:${ss}</div><p class="note" style="text-align:center;margin:-8px 0 0">Time left to pay exactly <b class="num">${amt}</b></p>
+      <div class="status"><span class="spin"></span>Waiting for payment…</div><p class="note" style="text-align:center;margin:0">Open any UPI app, tap Scan, and point it at this code. The amount is fixed for this order.</p>`}
+    ${dead?"":demo(`<button class="btn sm" data-a="payDemo" data-v="expire">Skip to expiry</button>`)}<p class="note" style="text-align:center;margin:0">Sample code for the prototype. It is not scannable.</p>`;
+  }else if(m==="upi"){
+    body=`<div class="status"><span class="spin"></span>Waiting for you to approve in ${state.co.app}…</div><p class="note" style="text-align:center;margin:0">Your phone will open ${state.co.app} with this order's payment request. Approve it there, then return here.</p>${demo()}`;
+  }else if(m==="card"){
+    body=`<div class="rzp"><header><b>Razorpay Checkout</b><span class="pill p-warn">Test mode</span></header><div class="body"><p style="margin:0">Pay <b class="num">${amt}</b> to QuickBasket</p><p class="note" style="margin:0">The card form opens in Razorpay's secure window. QuickBasket never sees or stores card numbers or CVV.</p><div class="status"><span class="spin"></span>Waiting for the card payment…</div></div></div>${demo()}`;
+  }else if(m==="net"){
+    body=state.pay.bank?`<div class="rzp"><header><b>${state.pay.bank}</b><span class="pill p-warn">Test mode</span></header><div class="body"><p style="margin:0">Complete the payment of <b class="num">${amt}</b> in your bank's page.</p><div class="status"><span class="spin"></span>Waiting for ${state.pay.bank}…</div></div></div>${demo()}`
+    :`<h3>Choose your bank</h3><div class="banks">${["HDFC Bank","SBI","ICICI Bank","Axis Bank","Kotak","Other banks"].map(b=>`<button data-a="bank" data-v="${b}">${b}</button>`).join("")}</div>`;
+  }
+  return `<div class="paywrap"><div class="payhead"><span class="muted">Order ${o.id}</span><div class="amt num">${amt}</div><span>${pill("Awaiting payment","p-warn")}</span></div>${body}
+  ${ph==="verifying"?"":`<button class="btn ghost block" data-a="changeMethod">Change payment method</button>`}</div>`;
+}
+function doneView(){
+  const o=state.order, cod=o.method==="Cash on delivery";
+  return `<div class="paywrap" style="text-align:center"><div class="big good" aria-hidden="true">✓</div><h1 style="font-size:32px">${cod?"Order placed":"Payment confirmed"}</h1>
+  <p class="muted" style="margin:0">${cod?`Pay ${money(o.total)} in cash when your order arrives.`:`We received ${money(o.total)}. The gateway confirmed it before this screen appeared.`}</p>
+  <div class="panel" style="text-align:left"><div style="display:flex;justify-content:space-between"><span class="muted">Order</span><b class="num">${o.id}</b></div><div style="display:flex;justify-content:space-between"><span class="muted">Items</span><b class="num">${o.items}</b></div><div style="display:flex;justify-content:space-between"><span class="muted">Arriving</span><b>in about 12 minutes</b></div></div>
+  <button class="btn primary block" data-a="goTrack">Track order</button><button class="btn block" data-a="goShop">Continue shopping</button></div>`;
+}
+function trackView(){
+  const o=state.order||state.orders.find(x=>x.mine&&x.status!=="Delivered")||state.orders.find(x=>x.mine); if(!o) return `<div class="empty">No orders yet.</div>`;
+  const i=FLOW.indexOf(o.status), eta=["12 min","9 min","4 min","Delivered"][Math.max(i,0)];
+  const pos=[[44,138],[44,138],[168,86],[276,38]][Math.max(i,0)];
+  const labels=[["Order placed","We've received your order and payment."],["Packed","Your items are packed at the store."],["Out for delivery","Arjun is on the way with your order."],["Delivered","Enjoy! Rate your delivery in the app."]];
+  return `<div class="sectiontitle"><h2>Track order</h2><button class="btn sm ghost" data-a="goShop">Back to shopping</button></div>
+  <div class="cols"><section class="panel"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><b class="num">${o.id}</b><div class="muted">${money(o.total)} · ${o.items} items</div></div><div style="text-align:right"><div class="muted">Arriving in</div><div style="font-family:var(--display);font-size:28px;font-weight:800">${eta}</div></div></div>
+   <div class="tl">${labels.map((l,k)=>`<div class="step ${k<=i?"done":""} ${k===i?"now":""}"><div class="dot">${k<i||o.status==="Delivered"?"✓":k+1}</div><div><b>${l[0]}</b><div class="muted">${l[1]}</div></div></div>`).join("")}</div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-a="play" ${o.status==="Delivered"||state.playing?"disabled":""}>${state.playing?"Playing demo…":"Play delivery demo"}</button><button class="btn" data-a="goOrders">All orders</button></div></section>
+  <aside style="display:flex;flex-direction:column;gap:16px"><div class="map"><svg viewBox="0 0 320 180" role="img" aria-label="Map showing the delivery route"><rect width="320" height="180" style="fill:var(--surface-2)"/>
+   <g style="stroke:var(--line)" stroke-width="10" fill="none" stroke-linecap="round"><path d="M0 120 H320 M80 0 V180 M210 0 V180 M0 50 H320"/></g>
+   <path d="M44 138 C 110 138, 120 86, 168 86 S 250 38, 276 38" fill="none" style="stroke:var(--brand)" stroke-width="4" stroke-dasharray="2 8" stroke-linecap="round"/>
+   <circle cx="44" cy="138" r="9" style="fill:var(--ink)"/><text x="44" y="162" text-anchor="middle" font-size="10" style="fill:var(--muted)">Store</text>
+   <circle cx="276" cy="38" r="9" style="fill:var(--accent)"/><text x="276" y="22" text-anchor="middle" font-size="10" style="fill:var(--muted)">Home</text>
+   <g class="rider" style="transform:translate(${pos[0]}px,${pos[1]}px)"><circle r="14" style="fill:var(--brand)" opacity=".25"/><circle r="7" style="fill:var(--brand)" stroke="#fff" stroke-width="2"/></g></svg></div>
+   ${o.partner?`<div class="panel"><div class="person"><div class="avatar">${o.partner[0]}</div><div><b>${o.partner}</b><div class="muted">Your delivery partner · 4.9 rating</div></div></div></div>`:`<div class="panel muted">A delivery partner is assigned once your order is packed.</div>`}</aside></div>`;
+}
+function ordersView(){
+  const mine=state.orders.filter(o=>o.mine);
+  return `<div class="sectiontitle"><h2>Your orders</h2><button class="btn sm ghost" data-a="goShop">Back to shopping</button></div>
+  <div style="display:flex;flex-direction:column;gap:12px">${mine.map(o=>`<div class="panel" style="flex-direction:row;justify-content:space-between;align-items:center;flex-wrap:wrap"><div><b class="num">${o.id}</b><div class="muted">${o.when} · ${o.items} items · ${money(o.total)} · ${o.method}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${pill(o.status,statusPill(o.status))}${pill(o.pay,payPill(o.pay))}<button class="btn sm" data-a="trackOrder" data-v="${o.id}">${o.status==="Delivered"?"View":"Track"}</button></div></div>`).join("")}</div>`;
+}
+function chatPanel(){
+  const sug=["Ingredients for dinner for 4","Healthy breakfast under ₹300","Movie night snacks","Restock cleaning basics"];
+  return `<section class="chat" role="dialog" aria-label="Shopping assistant"><header><b>Shopping assistant</b><button data-a="closeAssist" aria-label="Close assistant">×</button></header>
+  <div class="log" id="chatLog">${state.chat.map((m,mi)=>`<div class="msg ${m.role==="me"?"me":""}">${m.text}${m.list?listCard(m.list,mi):""}</div>`).join("")}</div>
+  <div class="suggest">${sug.map(s=>`<button data-a="prompt" data-v="${s}">${s}</button>`).join("")}</div>
+  <div class="composer"><input id="chatIn" placeholder="Ask for a list or a product…" value="${state.chatInput.replace(/"/g,"&quot;")}" aria-label="Message the assistant"><button class="btn primary sm" data-a="sendChat">Send</button></div></section>`;
+}
+function listCard(l,mi){
+  const n=l.items.filter(i=>i.on).length;
+  return `<div class="list"><h4>${l.title}</h4>${l.items.map((it,k)=>{const p=PM[it.id];return `<div class="li"><input type="checkbox" ${it.on?"checked":""} data-a="tick" data-v="${mi}:${k}" aria-label="Include ${p.name}"><span>${p.emoji} ${p.name}<br><span class="muted" style="font-size:12px">${p.unit}</span></span><span class="mini"><button data-a="lq" data-v="${mi}:${k}:-1" aria-label="Fewer">−</button><span class="num">${it.qty}</span><button data-a="lq" data-v="${mi}:${k}:1" aria-label="More">+</button></span><b class="num">${money(p.price*it.qty)}</b></div>`}).join("")}
+  <button class="btn primary sm" style="margin-top:8px" data-a="addList" data-v="${mi}" ${n&&!l.added?"":"disabled"}>${l.added?"Added to cart":`Add ${n} item${n===1?"":"s"} to cart · ${money(listTotal(l))}`}</button></div>`;
+}
+
+/* ---------- admin ---------- */
+function adminView(){
+  const tab=(k,l)=>`<button class="chip" data-a="atab" data-v="${k}" aria-pressed="${state.atab===k}">${l}</button>`;
+  const paid=state.orders.filter(o=>o.pay==="Paid").length, low=P.filter(p=>state.stock[p.id]<20);
+  let body="";
+  if(state.atab==="dashboard"){
+    const max=30, W=420,H=190;
+    const bars=WEEK.map(([d,v],i)=>{const x=34+i*56,h=v/max*(H-50),y=H-26-h;return `<rect x="${x}" y="${y}" width="36" height="${h}" rx="6" style="fill:${i===6?"var(--accent)":"var(--brand)"}"/><text x="${x+18}" y="${y-6}" text-anchor="middle" font-size="10.5" style="fill:var(--ink)">${v}k</text><text x="${x+18}" y="${H-8}" text-anchor="middle" font-size="11" style="fill:var(--muted)">${d}</text>`}).join("");
+    body=`<div class="stats"><div class="stat"><span class="d">Orders today</span><span class="v num">${state.orders.length+142}</span><span class="d">+8% vs yesterday</span></div><div class="stat"><span class="d">Revenue today</span><span class="v num">₹12,640</span><span class="d">${paid} paid orders in this sample</span></div><div class="stat"><span class="d">Active deliveries</span><span class="v num">${state.orders.filter(o=>o.status==="Out for delivery"||o.status==="Packed").length+6}</span><span class="d">9 partners online</span></div><div class="stat"><span class="d">Low stock</span><span class="v num">${low.length}</span><span class="d">Items under 20 units</span></div></div>
+    <div class="two"><section class="panel"><h3>Revenue, last 7 days (₹ thousands)</h3><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bar chart of revenue for the last seven days" style="width:100%;height:auto"><line x1="20" y1="${H-26}" x2="${W-10}" y2="${H-26}" style="stroke:var(--line)"/>${bars}</svg></section>
+    <section class="panel"><h3>Low stock</h3>${low.map(p=>`<div class="lowrow"><span>${p.emoji} ${p.name}</span><b class="num" style="color:var(--bad)">${state.stock[p.id]} left</b></div>`).join("")||"<span class='muted'>All stocked.</span>"}<button class="btn sm" data-a="atab" data-v="products">Manage stock</button></section></div>`;
+  }
+  if(state.atab==="orders") body=`<div class="tablewrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Payment</th><th>Status</th><th>Partner</th><th class="r">Action</th></tr></thead><tbody>${state.orders.map(o=>{
+    const next=FLOW[FLOW.indexOf(o.status)+1], can=o.status!=="Pending payment"&&next;
+    return `<tr><td class="num"><b>${o.id}</b><div class="muted" style="font-size:12px">${o.when}</div></td><td>${o.customer}</td><td class="num">${money(o.total)}</td><td>${pill(o.pay,payPill(o.pay))}<div class="muted" style="font-size:12px">${o.method}</div></td><td>${pill(o.status,statusPill(o.status))}</td><td>${o.partner||(o.status==="Packed"?`<button class="btn sm" data-a="assign" data-v="${o.id}">Assign Arjun K.</button>`:"<span class='muted'>—</span>")}</td>
+    <td class="r">${can?`<button class="btn sm primary" data-a="adv" data-v="${o.id}">Mark ${next.toLowerCase()}</button>`:`<span class="muted">${o.status==="Pending payment"?"Awaiting payment":"Done"}</span>`}</td></tr>`}).join("")}</tbody></table></div>`;
+  if(state.atab==="payments") body=`<div class="tablewrap"><table><thead><tr><th>Payment</th><th>Order</th><th>Method</th><th class="r">Amount</th><th>Status</th><th class="r">Action</th></tr></thead><tbody>${state.orders.map(o=>`<tr><td class="num">pay_${o.id.slice(-6).toLowerCase()}</td><td class="num">${o.id}</td><td>${o.method}</td><td class="r num">${money(o.total)}</td><td>${pill(o.pay,payPill(o.pay))}</td><td class="r">${o.pay==="Paid"?`<button class="btn sm" data-a="refundOpen" data-v="${o.id}">Refund</button>`:`<span class="muted">—</span>`}</td></tr>`).join("")}</tbody></table></div><p class="note">Statuses change only after verified gateway confirmation. Refunds are sent with an idempotency key so a double click can't refund twice.</p>`;
+  if(state.atab==="products") body=`<div class="tablewrap"><table><thead><tr><th>Product</th><th>Category</th><th class="r">Price</th><th class="r">Stock</th></tr></thead><tbody>${P.map(p=>`<tr><td>${p.emoji} <b>${p.name}</b> <span class="muted">${p.unit}</span></td><td>${CATS[p.cat]}</td><td class="r num">${money(p.price)}</td><td class="r"><span class="mini"><button data-a="stock" data-v="${p.id}:-10" aria-label="Reduce stock">−</button><span class="num" style="min-width:34px;${state.stock[p.id]<20?"color:var(--bad);font-weight:700":""}">${state.stock[p.id]}</span><button data-a="stock" data-v="${p.id}:10" aria-label="Increase stock">+</button></span></td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="sectiontitle" style="margin-top:20px"><h2>Admin</h2><span class="muted">Store: Koramangala dark store</span></div><div class="atabs">${tab("dashboard","Dashboard")}${tab("orders","Orders")}${tab("payments","Payments")}${tab("products","Products")}</div>${body}`;
+}
+function refundModal(){
+  const o=state.orders.find(x=>x.id===state.refund.id);
+  return `<div class="scrim center"><div class="modal" role="dialog" aria-label="Refund payment"><h2>Refund payment</h2><p style="margin:0" class="muted">Order <span class="num">${o.id}</span> · paid ${money(o.total)} by ${o.method}</p>
+  <div class="field"><label for="rAmt">Refund amount (₹)</label><input id="rAmt" inputmode="numeric" value="${state.refund.amt}"></div>
+  <div class="field"><label for="rWhy">Reason</label><input id="rWhy" value="${state.refund.why}"></div>
+  <div class="callout">The refund shows as pending until the gateway confirms it by webhook.</div>
+  <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" data-a="refundClose">Cancel</button><button class="btn primary" data-a="refundGo">Send refund</button></div></div></div>`;
+}
+
+/* ---------- partner ---------- */
+function partnerView(){
+  const mine=state.orders.filter(o=>o.partner==="Arjun K."&&(o.status==="Packed"||o.status==="Out for delivery"));
+  const done=state.orders.filter(o=>o.partner==="Arjun K."&&o.status==="Delivered").length;
+  const task=o=>{
+    const cod=o.pay==="COD pending", isNew=o.status==="Packed"&&!o.accepted;
+    return `<article class="task ${isNew?"new":""}"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b class="num">${o.id}</b>${isNew?pill("New request","p-warn"):pill(o.status,statusPill(o.status))}</div>
+    <div class="muted">${o.items} items · ${money(o.total)} · ${o.method}</div>
+    <div><b>Pickup</b><div class="muted">QuickBasket dark store, 80 Feet Road, Koramangala</div></div><div><b>Drop-off</b><div class="muted">${o.customer}, Lakeview Residency, 5th Cross, Koramangala</div></div>
+    ${cod&&o.status==="Out for delivery"?`<div class="callout warn"><b>Collect ${money(o.total)} in cash</b> before handing over the order.</div><label class="check"><input type="checkbox" data-a="codTick" data-v="${o.id}" ${state.partner.cod[o.id]?"checked":""}>I collected ${money(o.total)}</label>`:""}
+    ${isNew?`<div style="display:flex;gap:8px"><button class="btn primary" style="flex:1" data-a="paccept" data-v="${o.id}">Accept</button><button class="btn" data-a="pdecline" data-v="${o.id}">Decline</button></div>`
+    :o.status==="Packed"?`<button class="btn primary block" data-a="ppick" data-v="${o.id}">Picked up from store</button>`
+    :`<button class="btn primary block" data-a="pdeliver" data-v="${o.id}" ${cod&&!state.partner.cod[o.id]?"disabled":""}>Mark delivered</button>`}</article>`;
+  };
+  return `<div class="phone"><div style="display:flex;justify-content:space-between;align-items:center"><div class="person"><div class="avatar">A</div><div><h2 style="font-size:20px">Hi, Arjun</h2><span class="muted">Delivery partner</span></div></div>
+  <button class="toggle" data-a="online" aria-pressed="${state.partner.online}"><span class="sw"></span>${state.partner.online?"Online":"Offline"}</button></div>
+  <div class="stats" style="grid-template-columns:1fr 1fr"><div class="stat"><span class="d">Earned today</span><span class="v num">${money(640+done*40)}</span></div><div class="stat"><span class="d">Deliveries</span><span class="v num">${11+done}</span></div></div>
+  ${state.partner.online?(mine.length?mine.map(task).join(""):`<div class="empty">No active orders. New requests appear here when the store packs an order for you.</div>`):`<div class="empty">You're offline. Go online to receive delivery requests.</div>`}</div>`;
+}
+
+/* ---------- shell ---------- */
+function view(){
+  if(!state.user)return loginView();
+  if(state.role!==state.user.role)state.role=state.user.role;
+  if(state.role==="admin")return `<div class="wrap">${adminView()}</div>`;
+  if(state.role==="partner")return `<div class="wrap">${partnerView()}</div>`;
+  const v={shop:shopView,checkout:checkoutView,pay:payView,done:doneView,track:trackView,orders:ordersView}[state.view]();
+  const bar=count()&&state.view==="shop"&&!state.drawer&&!state.assist?`<button class="cartbar" data-a="openCart"><span class="num">${count()} item${count()>1?"s":""} · ${money(total())}</span><span>View cart →</span></button>`:"";
+  return `<div class="wrap">${customerHeader()}${v}</div>${bar}${state.assist?chatPanel():""}${state.drawer?drawer():""}${state.confirm?confirmModal():""}`;
+}
+function shell(){ return roleBar()+view()+(state.role==="admin"&&state.refund?refundModal():""); }
+function render(){
+  const f=document.activeElement, id=f&&f.id, pos=f&&f.selectionStart;
+  $("#app").innerHTML=shell();
+  if(id){const el=document.getElementById(id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(e){}}}
+  const log=$("#chatLog"); if(log)log.scrollTop=log.scrollHeight;
+  try{history.replaceState(null,"","#"+(!state.user?(state.loginMode==="staff"?"staff":"signin"):(state.role==="customer"?state.view:state.role)))}catch(e){}
+}
+
+/* ---------- events ---------- */
+function act(a,v,el){
+  const S=state;
+  switch(a){
+    case "loginMode":S.loginMode=v;S.lgErr="";S.lg={email:"",pw:""};break;
+    case "fill":{const a=ACCOUNTS.find(x=>x.email===v);S.lg={email:a.email,pw:a.pw};S.lgErr="";break}
+    case "login":{
+      const a=ACCOUNTS.find(x=>x.email===S.lg.email.trim().toLowerCase()&&x.pw===S.lg.pw), staff=S.loginMode==="staff";
+      /* one generic message, and each sign-in page only accepts its own kind of account */
+      if(!a||(staff&&a.role==="customer")||(!staff&&a.role!=="customer")){S.lgErr="Email or password is incorrect.";break}
+      S.user=a;S.role=a.role;S.lgErr="";S.lg={email:"",pw:""};S.view="shop";S.atab="dashboard";S.drawer=false;S.assist=false;window.scrollTo(0,0);break}
+    case "logout":S.user=null;S.drawer=false;S.assist=false;S.confirm=false;S.refund=null;S.loginMode=S.role==="customer"?"customer":"staff";S.lgErr="";window.scrollTo(0,0);break;
+    case "cat":S.cat=v;S.q="";S.view="shop";break;
+    case "inc":S.cart[v]=(S.cart[v]||0)+1;break;
+    case "dec":S.cart[v]=Math.max(0,(S.cart[v]||0)-1);break;
+    case "openCart":S.drawer=true;break; case "closeCart":S.drawer=false;break;
+    case "toCheckout":S.drawer=false;S.view="checkout";window.scrollTo(0,0);break;
+    case "goShop":S.view="shop";S.drawer=false;window.scrollTo(0,0);break;
+    case "goOrders":S.view="orders";window.scrollTo(0,0);break;
+    case "goTrack":S.view="track";window.scrollTo(0,0);break;
+    case "trackOrder":S.order=S.orders.find(o=>o.id===v);S.view="track";window.scrollTo(0,0);break;
+    case "setAddr":S.co.addr=v;break; case "setSlot":S.co.slot=v;break; case "setMethod":S.co.method=v;break; case "setApp":S.co.app=v;break;
+    case "review":S.confirm=true;break; case "cancelConfirm":S.confirm=false;break; case "confirmPay":startPay();return;
+    case "payDemo":payDemo(v);return;
+    case "retry":S.pay={phase:"waiting",secs:600,seed:S.pay.seed+1,bank:S.pay.bank};if(S.order)S.order.pay="Pending";break;
+    case "changeMethod":S.view="checkout";window.scrollTo(0,0);break;
+    case "bank":S.pay.bank=v;break;
+    case "play":playDelivery();return;
+    case "openAssist":S.assist=true;S.drawer=false;break; case "closeAssist":S.assist=false;break;
+    case "prompt":sendChat(v);return; case "sendChat":sendChat(S.chatInput);return;
+    case "tick":{const[m,k]=v.split(":").map(Number),it=S.chat[m].list.items[k];it.on=!it.on;break}
+    case "lq":{const[m,k,d]=v.split(":").map(Number),it=S.chat[m].list.items[k];it.qty=Math.max(1,it.qty+d);break}
+    case "addList":{const l=S.chat[+v].list;l.items.filter(i=>i.on).forEach(i=>S.cart[i.id]=(S.cart[i.id]||0)+i.qty);l.added=true;S.chat.push({role:"bot",text:`Added to your cart. Review it when you're ready. I can't place orders or pay for you, so checkout is always your call.`});toast("Items added to your cart");break}
+    case "atab":S.atab=v;break;
+    case "adv":advance(S.orders.find(o=>o.id===v));break;
+    case "assign":{const o=S.orders.find(o=>o.id===v);o.partner="Arjun K.";o.accepted=false;toast("Assigned to Arjun K.");break}
+    case "refundOpen":{const o=S.orders.find(o=>o.id===v);S.refund={id:v,amt:o.total,why:"Customer request"};break}
+    case "refundClose":S.refund=null;break;
+    case "refundGo":{
+      const o=S.orders.find(o=>o.id===S.refund.id),amt=Math.min(o.total,Math.max(1,parseInt(S.refund.amt,10)||0));
+      o.pay="Refund pending";S.refund=null;toast("Refund requested. It completes when the gateway confirms.");
+      setTimeout(()=>{o.pay=amt>=o.total?"Refunded":"Partially refunded";render()},2000);break}
+    case "stock":{const[id,d]=v.split(":");S.stock[id]=Math.max(0,S.stock[id]+ +d);break}
+    case "online":S.partner.online=!S.partner.online;break;
+    case "paccept":{S.orders.find(o=>o.id===v).accepted=true;toast("Request accepted");break}
+    case "pdecline":{const o=S.orders.find(o=>o.id===v);o.partner=null;o.accepted=false;toast("Declined. The store will reassign it.");break}
+    case "ppick":advance(S.orders.find(o=>o.id===v));break;
+    case "pdeliver":{const o=S.orders.find(o=>o.id===v);advance(o);toast("Delivered. Nice work!");break}
+    case "codTick":S.partner.cod[v]=el.checked;break;
+  }
+  render();
+}
+document.addEventListener("click",e=>{
+  const stop=e.target.closest("[data-stop]"), t=e.target.closest("[data-a]");
+  if(!t)return;
+  if(t.classList.contains("scrim")&&stop)return;
+  if(t.dataset.a==="tick"||t.dataset.a==="codTick")return;
+  act(t.dataset.a,t.dataset.v,t);
+});
+document.addEventListener("change",e=>{const t=e.target.closest("[data-a]");if(t&&(t.dataset.a==="tick"||t.dataset.a==="codTick"))act(t.dataset.a,t.dataset.v,t)});
+document.addEventListener("input",e=>{
+  if(e.target.id==="q"){state.q=e.target.value;state.view="shop";if(state.role==="customer")render()}
+  if(e.target.id==="chatIn")state.chatInput=e.target.value;
+  if(e.target.id==="lgEmail")state.lg.email=e.target.value;
+  if(e.target.id==="lgPw")state.lg.pw=e.target.value;
+  if(e.target.id==="rAmt"&&state.refund)state.refund.amt=e.target.value;
+  if(e.target.id==="rWhy"&&state.refund)state.refund.why=e.target.value;
+});
+document.addEventListener("keydown",e=>{
+  if(e.target.id==="chatIn"&&e.key==="Enter"){e.preventDefault();sendChat(state.chatInput)}
+  if((e.target.id==="lgPw"||e.target.id==="lgEmail")&&e.key==="Enter"){e.preventDefault();act("login",undefined,e.target)}
+  if(e.key==="Escape"){state.drawer=false;state.confirm=false;state.assist=false;state.refund=null;render()}
+  if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("app")){e.preventDefault();act("setApp",e.target.dataset.v,e.target)}
+});
+setInterval(()=>{
+  if(state.role==="customer"&&state.view==="pay"&&state.pay.phase==="waiting"&&state.co.method==="qr"){
+    state.pay.secs--; if(state.pay.secs<=0){state.pay.phase="expired";render()}
+    else{const t=$("#qrTimer");if(t)t.textContent=String(Math.floor(state.pay.secs/60)).padStart(2,"0")+":"+String(state.pay.secs%60).padStart(2,"0")}
+  }
+},1000);
+
+/* start from the hash so a link can open a specific view */
+(function(){const h=location.hash.slice(1);
+  if(h==="staff")state.loginMode="staff"; /* admin and partner views are only reachable by signing in */
+  /* seed a realistic first view: two items already in the cart */
+  state.cart={milk:2,eggs:1,banana:1};
+})();
+render();
+</script>
