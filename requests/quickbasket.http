@@ -1,0 +1,135 @@
+### QuickBasket API - end-to-end test (VS Code "REST Client" extension, Visual Studio, or Rider).
+### Run the requests top to bottom. Development settings use the MOCK payment provider.
+### Sample accounts come from appsettings.Development.json.
+
+@host = https://localhost:7080
+
+### 1. Health
+GET {{host}}/health
+
+### 2. Admin login (seeded)
+# @name adminLogin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@quickbasket.local", "password": "DevAdmin#12345" }
+
+### 3. Register a customer
+# @name register
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{ "email": "priya@example.com", "password": "Customer#12345", "fullName": "Priya S.", "phoneNumber": "9000000000" }
+
+### 3b. Or log in if already registered
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "priya@example.com", "password": "Customer#12345" }
+
+@token = {{login.response.body.accessToken}}
+@adminToken = {{adminLogin.response.body.accessToken}}
+
+### 4. Browse (no token needed)
+# @name products
+GET {{host}}/api/products?search=milk
+
+@productId = {{products.response.body.items[0].id}}
+
+### 5. Add to cart
+POST {{host}}/api/cart/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "productId": "{{productId}}", "quantity": 3 }
+
+### 6. Save an address
+# @name address
+POST {{host}}/api/addresses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "label": "Home", "recipientName": "Priya S.", "phone": "9000000000", "line1": "Flat 4B, Lakeview Residency",
+  "city": "Bengaluru", "state": "Karnataka", "postalCode": "560034", "isDefault": true }
+
+### 7. Checkout: creates the order with a server-calculated total
+# @name order
+POST {{host}}/api/orders/checkout
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "addressId": "{{address.response.body.id}}", "notes": "Ring the bell" }
+
+@orderId = {{order.response.body.id}}
+
+### 8. Start payment. confirmedByCustomer MUST be true. Method: Upi | UpiQr | Card | NetBanking | CashOnDelivery
+# @name payment
+POST {{host}}/api/payments/initiate
+Authorization: Bearer {{token}}
+Idempotency-Key: test-key-001
+Content-Type: application/json
+
+{ "orderId": "{{orderId}}", "method": "UpiQr", "confirmedByCustomer": true }
+
+@paymentId = {{payment.response.body.paymentId}}
+
+### 8b. Without confirmation it must be rejected (expect 400)
+POST {{host}}/api/payments/initiate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "orderId": "{{orderId}}", "method": "Card", "confirmedByCustomer": false }
+
+### 9. Same Idempotency-Key again returns the SAME payment (no second charge attempt)
+POST {{host}}/api/payments/initiate
+Authorization: Bearer {{token}}
+Idempotency-Key: test-key-001
+Content-Type: application/json
+
+{ "orderId": "{{orderId}}", "method": "UpiQr", "confirmedByCustomer": true }
+
+### 10. Status is still pending: the API never trusts the browser
+GET {{host}}/api/payments/{{paymentId}}
+Authorization: Bearer {{token}}
+
+### 11. DEV ONLY: play the gateway and pay (sends a signed webhook). Use success=false to test failure.
+POST {{host}}/api/dev/mock-payments/{{paymentId}}/simulate?success=true
+
+### 11b. Replaying the same kind of event is harmless (still captured once)
+POST {{host}}/api/dev/mock-payments/{{paymentId}}/simulate?success=true
+
+### 12. Payment is now Captured and the order Confirmed
+GET {{host}}/api/orders/{{orderId}}
+Authorization: Bearer {{token}}
+
+### 13. A customer token must NOT reach admin endpoints (expect 403)
+GET {{host}}/api/admin/orders
+Authorization: Bearer {{token}}
+
+### 14. Admin: orders and payments
+GET {{host}}/api/admin/orders
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{host}}/api/admin/payments
+Authorization: Bearer {{adminToken}}
+
+### 15. Admin: refund half (Idempotency-Key required)
+# @name refund
+POST {{host}}/api/admin/payments/{{paymentId}}/refunds
+Authorization: Bearer {{adminToken}}
+Idempotency-Key: refund-key-001
+Content-Type: application/json
+
+{ "amount": 50, "reason": "Damaged item" }
+
+### 16. DEV ONLY: gateway finishes the refund, payment becomes PartiallyRefunded
+POST {{host}}/api/dev/mock-payments/refunds/{{refund.response.body.id}}/process
+
+### 17. Admin: advance the order (status values: Packed, OutForDelivery, Delivered)
+PUT {{host}}/api/admin/orders/{{orderId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "status": "Packed", "note": "Packed at store" }

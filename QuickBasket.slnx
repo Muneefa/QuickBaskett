@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/QuickBasket.Domain/QuickBasket.Domain.csproj" />
+    <Project Path="src/QuickBasket.Payments/QuickBasket.Payments.csproj" />
+    <Project Path="src/QuickBasket.Application/QuickBasket.Application.csproj" />
+    <Project Path="src/QuickBasket.Infrastructure/QuickBasket.Infrastructure.csproj" />
+    <Project Path="src/QuickBasket.Api/QuickBasket.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/QuickBasket.Tests/QuickBasket.Tests.csproj" />
+  </Folder>
+</Solution>
