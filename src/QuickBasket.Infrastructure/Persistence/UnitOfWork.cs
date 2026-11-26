@@ -12,13 +12,19 @@ public sealed class UnitOfWork(QuickBasketDbContext db) : IUnitOfWork
 
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
+        // Order events are append-only. If EF wrongly thinks a brand-new one already exists, insert it.
+        foreach (var e in db.ChangeTracker.Entries<QuickBasket.Domain.Entities.OrderEvent>()
+                     .Where(x => x.State == EntityState.Modified))
+            e.State = EntityState.Added;
+
         try
         {
             return await db.SaveChangesAsync(ct);
         }
         catch (DbUpdateConcurrencyException ex)
         {
-            throw new ConcurrencyConflictException(ex.Message);
+            var rows = string.Join("; ", ex.Entries.Select(x => $"{x.Metadata.ClrType.Name} is {x.State}"));
+            throw new ConcurrencyConflictException($"{ex.Message} Rows involved: {rows}");
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: SqlUniqueIndexViolation or SqlUniqueConstraintViolation })
         {
